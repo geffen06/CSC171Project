@@ -21,7 +21,10 @@ public class GameFinal extends Application {
     private ArrayList<Platform> platforms;
     void createPlatforms(int width, int height) {
         platforms = new ArrayList<>();
-        platforms.add(new Platform((double) width / 2, (double) height / 2, 200));
+        platforms.add(new Platform((double) width * 0.5, (double) height * 0.8, (double) width * 0.8));
+        platforms.add(new Platform((double) width * 0.15, (double) height * 0.6, (double) width * 0.2));
+        platforms.add(new Platform((double) width * 0.85, (double) height * 0.6, (double) width * 0.2));
+        platforms.add(new Platform((double) width * 0.5, (double) height * 0.4, (double) width * 0.2));
     }
 
     void displayPlatforms(Group root) {
@@ -39,10 +42,19 @@ public class GameFinal extends Application {
         height = 600;
         Scene scene = new Scene(root, width, height, Color.LIGHTGRAY);
 
-        gravity = new Vector2D(0, 0.2);
+        gravity = new Vector2D(0, 0.6);
         player = new Player((double) width / 2, 0, 50, 50);
 
         createPlatforms(width, height);
+
+        scene.setOnKeyPressed(event -> {
+            KeyCode key = event.getCode();
+            player.keyPressed(key);
+        });
+        scene.setOnKeyReleased(event -> {
+            KeyCode key = event.getCode();
+            player.keyReleased(key);
+        });
 
         AnimationTimer gameLoop = new AnimationTimer() {
             @Override
@@ -51,6 +63,7 @@ public class GameFinal extends Application {
                 height = (int)scene.getHeight();
 
                 player.addForce(gravity);
+                player.move(platforms);
                 player.update(platforms);
                 player.bounce(height);
 
@@ -74,17 +87,24 @@ public class GameFinal extends Application {
 }
 
 class Player {
-    Vector2D position;
-    Vector2D velocity;
-    Vector2D acceleration;
-    Vector2D bottomPosition;
-    double width;
-    double height;
-    Rectangle displayObject;
+    public Vector2D position;
+    public Vector2D velocity;
+    public Vector2D acceleration;
+    private final boolean[] keyz;
+    private final double movementSpeed;
+    private final double jumpForce;
+    private final double width;
+    private final double height;
+    private Vector2D bottomPosition;
+    private final Rectangle displayObject;
     Player(double x, double y, double width, double height) {
         this.position = new Vector2D(x, y);
         this.velocity = new Vector2D(0, 0);
         this.acceleration = new Vector2D(0, 0);
+
+        this.keyz = new boolean[3];
+        this.movementSpeed = 6;
+        this.jumpForce = 15;
 
         this.width = width;
         this.height = height;
@@ -114,8 +134,8 @@ class Player {
         for (Platform platform : platforms) {
             if (
                     Vector2D.xDist(this.position, platform.position) < (this.width + platform.width) / 2 &&
-                            Vector2D.yDist(this.bottomPosition, platform.position) < this.velocity.y &&
-                            this.velocity.y > 0
+                            Vector2D.yDist(this.bottomPosition, platform.position) < this.velocity.y + 0.4 &&
+                            this.velocity.y >= 0
             ) {
                 return platform;
             }
@@ -123,16 +143,46 @@ class Player {
         return null;
     }
 
+    public void keyPressed(KeyCode key) {
+        if (key == KeyCode.D || key == KeyCode.RIGHT) keyz[0] = true;
+        if (key == KeyCode.A || key == KeyCode.LEFT) keyz[1] = true;
+        if (key == KeyCode.W || key == KeyCode.UP) keyz[2] = true;
+    }
+    public void keyReleased(KeyCode key) {
+        if (key == KeyCode.D || key == KeyCode.RIGHT) keyz[0] = false;
+        if (key == KeyCode.A || key == KeyCode.LEFT) keyz[1] = false;
+        if (key == KeyCode.W || key == KeyCode.UP) keyz[2] = false;
+    }
+
+    public void move(ArrayList<Platform> platforms) {
+        if (keyz[0]) {
+            this.position.x += this.movementSpeed;
+        }
+
+        if (keyz[1]) {
+            this.position.x -= this.movementSpeed;
+        }
+
+        if (keyz[2]) {
+            boolean grounded = (this.onPlatform(platforms) != null);
+            if (grounded) {
+                this.velocity.y = -this.jumpForce;
+                // System.out.println("Jump!");
+            }
+        }
+    }
+
     public void update(ArrayList<Platform> platforms) {
         Platform platform = this.onPlatform(platforms);
         if (platform == null) {
             this.velocity.add(this.acceleration);
             this.position.add(this.velocity);
-            this.acceleration.set(0, 0);
         } else {
             this.velocity.y = 0;
             this.position.y = platform.position.y - height / 2;
         }
+
+        this.acceleration.set(0, 0);
     }
 
     public void display(Group root) {
